@@ -1,0 +1,1336 @@
+---
+title:"Exploratory data analysis using R"
+author: "Soorya Prabhu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+
+
+```{r}
+#Importing useful libraries for the model
+library(skimr)
+library(tidyverse)
+library(dplyr)
+library(e1071)
+library(Hmisc)
+library(dplyr)
+library(ggstatsplot)
+library(rstatix)
+library(caret)
+library(lmtest)
+library(plotly)
+library(ggmosaic)
+library(pROC)
+
+
+```
+
+
+```{r}
+mydf<-read.csv("subsetted_data-1.csv")
+head(mydf)
+```
+
+## 1.2 Data quality analysis plan
+ 
+
+The dataset doesn't have any duplicate values.Overall contains mission values of 138, which,in terms of percentage,is almost 33 percent of the mean values.When checking all the data has skewness .so i plotted it with median.
+
+Missing values are identified uing code "sum(is.na(mydf))",which help to identify the total number of missing valuesing in the dataset and it id 138 .As compared to the total number of dataset it s around 33% of the data.And the columns which contain missing values are min_mpg,max_mpg,first_owner and damaged.The column named min_mpg has highest number of missing values.And we are going to use median imputation to replace missing values in the varibles with continous valeus .Its not only because of the continous value and also due to the skewness of the data.
+
+For replacing outlier in continous variable  Winsorzing  method is used The outliers in the continous varible are replaced using 1st quantile and 2 nd quantile.The outlier which are above the 75 quantile are replaced by 3rd th quantile value and outlier which are below the 25 quantile are replaced by 1 st quantile value.
+
+
+And columns like fuel conatin type in mistake which contain type in mistakes,which consider petrol and pertol as 2 type. And there is also an extra type know as  known as"unknown",which contain the least number(2).so we are going to remove it.
+
+## 1.3 Data quality analysis findings
+
+```{r}
+#for getting first 6 rows in the dataset
+head(mydf)
+#for getting last 6 rows in the dataset
+tail(mydf)
+```
+
+```{r}
+#for getting overall display of the dataset
+View(mydf)
+```
+
+
+```{r}
+#to know the dimension of the dataset
+dim(mydf)
+
+```
+Dataset has 409 rows and 16 columns.
+
+```{r}
+# Check the data types of each column.
+sapply(mydf, class)
+```
+The dataset contain 13 numeric variables and 3 character variable
+```{r}
+#code help to know an overall summary of the data.
+describe(mydf)
+summary(mydf)
+```
+
+min_mpg ,engine_size,max_mpg,damaged,first_owner and navigation_system  contain NA's values .For max_mpg ,the value of median and mean is same,ie it is normally distributed varible.
+
+And the min value of mileage column is it is zero it is not possible.How can a used car mileage be zero .so we will look for replacing it in upcomming steps
+
+
+
+```{r}
+#this code helps to find if there is any duplicate value present in the data.
+duplicate_data <- sum(duplicated(mydf))
+print(duplicate_data)
+```
+findings:No duplicate data.
+
+
+```{r}
+#checking for missing value in the whole dataset
+sum(is.na(mydf))
+```
+findings:138 missing values which is almost 33%
+
+```{r}
+#filtering rows with missing values and checking for how many columns are missing in each data set
+missing<-!complete.cases(mydf)
+mydf[missing,]
+colSums(is.na(mydf))
+#plotting the bar graph toknow a clear picture about a missing values(NA's)
+barplot(colSums(is.na(mydf)))
+```
+
+5 variable contain missing values.
+
+#REMOVING MISSING VALUES FROM EACH VARIABLES
+
+#engine_size
+```{r}
+hist(mydf$engine_size, main="Engine Size Distribution", xlab="Engine Size",col="skyblue")
+```
+
+```{r}
+#code for finding skwness of the data
+skewness_value <- skewness(mydf$engine_size, na.rm = TRUE)
+cat("Skewness of engine_size:", skewness_value, "\n")
+
+
+```
+findings:Has a positive skewness of 1.174601 
+
+
+```{r}
+#hence we got a positive skewness  we are replacing it with median
+mydf$engine_size[is.na(mydf$engine_size)] <- median(mydf$engine_size, na.rm = TRUE)
+
+```
+
+#min_mpg and max_mpg
+```{r}
+skewness_value <- skewness(mydf$min_mpg, na.rm = TRUE)
+
+# Print the skewness value
+cat("Skewness of min_mpg:", skewness_value, "\n")
+
+
+skewness_value <- skewness(mydf$max_mpg, na.rm = TRUE)
+
+# Print the skewness value
+cat("Skewness of max_mpg:", skewness_value, "\n")
+```
+
+
+```{r}
+#plotting a histogram
+hist(mydf$min_mpg, main="min_mpg Distribution", xlab="min_mpg",col="skyblue")
+hist(mydf$max_mpg, main="max_mpg Distribution", xlab="max_mpg",col="skyblue")
+```
+
+
+```{r}
+mydf$min_mpg[is.na(mydf$min_mpg)] <- median(mydf$min_mpg, na.rm = TRUE)
+mydf$max_mpg[is.na(mydf$max_mpg)] <- median(mydf$max_mpg, na.rm = TRUE)
+```
+
+
+```{r}
+#checking for missing values
+colSums(is.na(mydf))
+barplot(colSums(is.na(mydf)))
+```
+#successfully replaced the  missing value in the min_mpg and max_mpg.
+
+
+
+#replacing missing value in the first_owner
+```{r}
+#finding unique values in the first_owner
+unique(mydf$first_owner)
+```
+NA is found
+
+```{r}
+#first_owner is a binary feature. so replacing the missing value with mode a better option.
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mydf$first_owner[is.na(mydf$first_owner)] <- Mode(mydf$first_owner)
+
+```
+
+
+```{r}
+#checking for missing values again
+colSums(is.na(mydf))
+
+table(mydf$first_owner)
+```
+
+#damaged
+```{r}
+#finding unique values in the damaged
+unique(mydf$damaged)
+```
+```{r}
+#replacing 'NA' with mode
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+mydf$damaged[is.na(mydf$damaged)] <- Mode(mydf$damaged)
+```
+
+```{r}
+#checking for NA again
+unique(mydf$damaged)
+```
+#fuel
+```{r}
+#code for visualizing the data in a table form
+table(mydf$fuel)
+```
+
+#spelling mistake for  Petrol and also an unknown value 
+```{r}
+# Replace "Pertol" with "Petrol"
+mydf$fuel[mydf$fuel == "Pertol"] <- "Petrol"
+
+table(mydf$fuel)
+```
+
+```{r}
+#changing Unknown to Others.Unknown does not mean the values are missing...! here the name of the fuel is not mentioned.
+mydf$fuel[mydf$fuel == "Unknown"] <- "Others"
+table(mydf$fuel)
+```
+
+
+```{r}
+#checking for final missing values
+colSums(is.na(mydf))
+barplot(colSums(is.na(mydf)))
+
+```
+ Not even a single missing value.we have successfully removed all the missing values.
+
+#LOOKING FOR OUTLIERS 
+
+
+```{r}
+#plotting the distribution of price for each variable.
+boxplot(price ~ brand, data = mydf, main = "Price Distribution by Brand", col = "skyblue", border = "black")
+
+```
+
+
+```{r}
+# Finding the IQR for every brand present in the dataset.
+brand_outliers <- tapply(mydf$price, mydf$brand, function(x) {
+  Q <- quantile(x)
+  IQR <- Q[4] - Q[2]
+  lower_limit <- Q[2] - 1.5 * IQR
+  upper_limit <- Q[4] + 1.5 * IQR
+  outliers <- x[x < lower_limit | x > upper_limit]
+  return(outliers)
+})
+
+print(brand_outliers)
+
+```
+presence of outliers in the price for alfa,Audi,Hoda,MINT and Nissan. 
+
+
+```{r}
+# Finding Q3 and Q1
+Q3 <- quantile(mydf$price[mydf$brand == "Alfa"], 0.75)
+Q1 <- quantile(mydf$price[mydf$brand == "Alfa"], 0.25)
+# Set upper limit
+upper_limit <- Q3 + 1.5 * IQR(mydf$price[mydf$brand == "Alfa"])
+# Set lower limit
+lower_limit <- Q1 - 1.5 * IQR(mydf$price[mydf$brand == "Alfa"])
+# Replace all values above the upper limit with the upper limit
+mydf$price[mydf$brand == "Alfa" & mydf$price > upper_limit] <- upper_limit
+# Replace values below the lower limit with the lower limit
+mydf$price[mydf$brand == "Alfa" & mydf$price < lower_limit] <- lower_limit
+
+
+#Audi
+Q3 <- quantile(mydf$price[mydf$brand == "Audi"], 0.75)
+Q1 <- quantile(mydf$price[mydf$brand == "Audi"], 0.25)
+upper_limit <- Q3 + 1.5 * IQR(mydf$price[mydf$brand == "Audi"])
+lower_limit <- Q1 - 1.5 * IQR(mydf$price[mydf$brand == "Audi"])
+mydf$price[mydf$brand == "Audi" & mydf$price > upper_limit] <- upper_limit
+mydf$price[mydf$brand == "Audi" & mydf$price < lower_limit] <- lower_limit
+
+
+# Honda
+Q3 <- quantile(mydf$price[mydf$brand == "Honda"], 0.75)
+Q1 <- quantile(mydf$price[mydf$brand == "Honda"], 0.25)
+upper_limit <- Q3 + 1.5 * IQR(mydf$price[mydf$brand == "Honda"])
+lower_limit <- Q1 - 1.5 * IQR(mydf$price[mydf$brand == "Honda"])
+mydf$price[mydf$brand == "Honda" & mydf$price > upper_limit] <- upper_limit
+mydf$price[mydf$brand == "Honda" & mydf$price < lower_limit] <- lower_limit
+
+
+# MINI
+Q3 <- quantile(mydf$price[mydf$brand == "MINI"], 0.75)
+Q1 <- quantile(mydf$price[mydf$brand == "MINI"], 0.25)
+upper_limit <- Q3 + 1.5 * IQR(mydf$price[mydf$brand == "MINI"])
+lower_limit <- Q1 - 1.5 * IQR(mydf$price[mydf$brand == "MINI"])
+mydf$price[mydf$brand == "MINI" & mydf$price > upper_limit] <- upper_limit
+mydf$price[mydf$brand == "MINI" & mydf$price < lower_limit] <- lower_limit
+
+
+# Nissan
+Q3 <- quantile(mydf$price[mydf$brand == "Nissan"], 0.75)
+Q1 <- quantile(mydf$price[mydf$brand == "Nissan"], 0.25)
+upper_limit <- Q3 + 1.5 * IQR(mydf$price[mydf$brand == "Nissan"])
+lower_limit <- Q1 - 1.5 * IQR(mydf$price[mydf$brand == "Nissan"])
+mydf$price[mydf$brand == "Nissan" & mydf$price > upper_limit] <- upper_limit
+mydf$price[mydf$brand == "Nissan" & mydf$price < lower_limit] <- lower_limit
+```
+
+```{r}
+# Finding  IQR for each car brand present in mydf dataset
+brand_outliers <- tapply(mydf$price, mydf$brand, function(x) {
+  Q <- quantile(x)
+  IQR <- Q[4] - Q[2]
+  lower_limit <- Q[2] - 1.5 * IQR
+  upper_limit <- Q[4] + 1.5 * IQR
+  outliers <- x[x < lower_limit | x > upper_limit]
+  return(outliers)
+})
+
+# Print the outliers 
+print(brand_outliers)
+
+#plotting a Boxplot
+boxplot(price ~ brand, data = mydf, main = "Price Distribution by Brand", col = "skyblue", border = "black")
+```
+
+#plotting boxplot for the features in the dataset
+```{r}
+# Boxplot for 'year'
+boxplot(mydf$year, main = "Year", col = "skyblue", border = "black")
+
+# Boxplot for 'mileage'
+boxplot(mydf$mileage, main = "Mileage", col = "skyblue", border = "black")
+
+# Boxplot for 'engine_size'
+boxplot(mydf$engine_size, main = "Engine Size", col = "skyblue", border = "black")
+
+# Boxplot for 'automatic_transmission'
+boxplot(mydf$automatic_transmission, main = "Automatic Transmission", col = "skyblue", border = "black")
+
+# Boxplot for 'min_mpg'
+boxplot(mydf$min_mpg, main = "Min MPG", col = "skyblue", border = "black")
+
+# Boxplot for 'max_mpg'
+boxplot(mydf$max_mpg, main = "Max MPG", col = "skyblue", border = "black")
+
+# Boxplot for 'damaged'
+boxplot(mydf$damaged, main = "Damaged", col = "skyblue", border = "black")
+
+# Boxplot for 'first_owner'
+boxplot(mydf$first_owner, main = "First Owner", col = "skyblue", border = "black")
+
+# Boxplot for 'navigation_system'
+boxplot(mydf$navigation_system, main = "Navigation System", col = "skyblue", border = "black")
+
+# Boxplot for 'bluetooth'
+boxplot(mydf$bluetooth, main = "Bluetooth", col = "skyblue", border = "black")
+
+# Boxplot for 'third_row_seating'
+boxplot(mydf$third_row_seating, main = "Third Row Seating", col = "skyblue", border = "black")
+
+# Boxplot for 'heated_seats'
+boxplot(mydf$heated_seats, main = "Heated Seats", col = "skyblue", border = "black")
+
+# Boxplot for 'price'
+boxplot(mydf$price, main = "Price", col = "skyblue", border = "black")
+
+
+
+
+```
+year,mileage,Engine_size,Automatic transmission,Min_MPG,Max_MPG,Damaged,First owner,Navigation System,Bluetooth,Third Row seating all the rows contain.
+
+
+#REMOVING OUTLIERS
+
+# Year 
+```{r}
+boxplot.stats(mydf$year)$out
+```
+values below 2009 is considered as outliers.
+
+```{r}
+hist(mydf$year, main="histogram of year", xlab="Engine Size",col="skyblue")
+```
+
+```{r}
+q25 <- quantile(mydf$year, 0.25, na.rm = TRUE)
+q75 <- quantile(mydf$year, 0.75, na.rm = TRUE)
+
+# Print the results
+cat("25th Percentile (Q1):", q25, "\n")
+cat("75th Percentile (Q3):", q75, "\n")
+
+```
+
+
+```{r}
+# Calculate the 25th percentile (Q1)
+q1 <- quantile(mydf$year, 0.25, na.rm = TRUE)
+
+# Identify and replace outliers
+outliers <- boxplot.stats(mydf$year)$out
+mydf$year[mydf$year %in% outliers] <- q1
+
+# Print the 25th percentile and the modified 'year' column
+cat("25th Percentile (Q1):", q1, "\n")
+cat("year column after replacing outliers:\n")
+print(mydf$year)
+
+```
+
+```{r}
+boxplot.stats(mydf$year)$out
+boxplot(mydf$year, main = "Year", col = "skyblue", border = "black")
+```
+
+
+#mileage
+```{r}
+# Boxplot for 'mileage'
+boxplot(mydf$mileage, main = "Mileage", col = "skyblue", border = "black")
+```
+
+
+
+
+```{r}
+range(mydf$mileage)
+```
+
+ used car with  mileage zero is not possible.so we will replace it.
+```{r}
+# Calculate the 25th and 75th percentiles (quartiles)
+q25 <- quantile(mydf$mileage, 0.25, na.rm = TRUE)
+q75 <- quantile(mydf$mileage, 0.75, na.rm = TRUE)
+
+# Print the results
+cat("25th Percentile (Q1):", q25, "\n")
+cat("75th Percentile (Q3):", q75, "\n")
+
+```
+
+
+```{r}
+boxplot.stats(mydf$mileage)$out
+
+```
+
+```{r}
+Q1 <- quantile(mydf$mileage, 0.25)
+Q2 <- quantile(mydf$mileage, 0.75)
+
+# Print the results
+cat("25th Percentile:", Q1, "\n")
+cat("75th Percentile:", Q2, "\n")
+
+```
+
+```{r}
+#Winsorizing
+#replacing the values below 25th percentile with 25th percentile value.
+#replacing the values above 75th percentile with 75th percentile value.
+lower_percentile <- quantile(mydf$mileage,0.25)   
+upper_percentile <- quantile(mydf$mileage,0.75)  
+boxplot.stats(mydf$mileage)$out
+summary(mydf$mileage)
+
+```
+
+```{r}
+# Winsorize values below the 25th percentile
+mydf$mileage[mydf$mileage < lower_percentile] <- lower_percentile
+
+# Winsorize values above the 75th percentile
+mydf$mileage[mydf$mileage > upper_percentile] <- upper_percentile
+
+```
+
+#engine_size
+
+```{r}
+# code for finding the 75th percentile (Q3)
+q3 <- quantile(mydf$engine_size, 0.75, na.rm = TRUE)
+
+#replacing with outliers
+outliers <- boxplot.stats(mydf$engine_size)$out
+mydf$engine_size[mydf$engine_size %in% outliers] <- q3
+
+cat("75th Percentile (Q3):", q3, "\n")
+cat("engine_size column after replacing outliers:\n")
+print(mydf$engine_size)
+```
+```{r}
+boxplot(mydf$engine_size, main = "Engine Size", col = "skyblue", border = "black")
+
+```
+
+
+
+#min_mpg and max_mpg
+```{r}
+boxplot.stats(mydf$min_mpg)$out
+range(mydf$min_mpg)
+min_mpg_25th_percentile <- quantile(mydf$min_mpg, 0.25)
+min_mpg_75th_percentile <- quantile(mydf$min_mpg, 0.75)
+
+# Print the results
+cat("25th Percentile:", min_mpg_25th_percentile, "\n")
+cat("75th Percentile:", min_mpg_75th_percentile, "\n")
+
+
+
+boxplot.stats(mydf$max_mpg)$out
+range(mydf$max_mpg)
+max_mpg_25th_percentile <- quantile(mydf$max_mpg, 0.25)
+max_mpg_75th_percentile <- quantile(mydf$max_mpg, 0.75)
+
+# Print the results
+cat("25th Percentile:", max_mpg_25th_percentile, "\n")
+cat("75th Percentile:", max_mpg_75th_percentile, "\n")
+
+```
+values like zero or negitive is not possible for a mpg of a car. 
+
+```{r}
+#min_mpg
+outliers <- boxplot.stats(mydf$min_mpg)$out
+min_mpg_25th_percentile <- quantile(mydf$min_mpg, 0.25)
+min_mpg_75th_percentile <- quantile(mydf$min_mpg, 0.75)
+mydf$min_mpg[mydf$min_mpg < min_mpg_25th_percentile] <- min_mpg_25th_percentile
+mydf$min_mpg[mydf$min_mpg > min_mpg_75th_percentile] <- min_mpg_75th_percentile
+
+
+
+#max_mg
+outliers <- boxplot.stats(mydf$max_mpg)$out
+max_mpg_25th_percentile <- quantile(mydf$max_mpg, 0.25)
+max_mpg_75th_percentile <- quantile(mydf$max_mpg, 0.75)
+# Replace outliers with values within the 25th and 75th percentiles
+mydf$max_mpg[mydf$max_mpg < max_mpg_25th_percentile] <- max_mpg_25th_percentile
+mydf$max_mpg[mydf$max_mpg > max_mpg_75th_percentile] <- max_mpg_75th_percentile
+
+```
+
+#plotting and check the for outliers in min_mpg and max_mpg
+```{r}
+boxplot.stats(mydf$min_mpg)$out
+boxplot(mydf$min_mpg, main = "min_mpg", col = "skyblue", border = "black")
+
+boxplot.stats(mydf$max_mpg)$out
+boxplot(mydf$max_mpg, main = "max_mpg", col = "skyblue", border = "black")
+
+```
+
+
+
+```{r}
+#once again conforming if all outliers are present.
+boxplot.stats(mydf$year)$out
+boxplot.stats(mydf$mileage)$out
+boxplot.stats(mydf$engine_size)$out
+boxplot.stats(mydf$max_mpg)$out
+boxplot.stats(mydf$min_mpg)$out
+```
+
+
+```{r}
+#damaged
+range(mydf$damaged)
+boxplot.stats(mydf$damaged)$out
+
+
+#third_row_seating
+range(mydf$third_row_seating)
+boxplot.stats(mydf$third_row_seating)$out
+
+
+#bluetooth
+range(mydf$bluetooth)
+boxplot.stats(mydf$bluetooth)$out
+
+```
+These three columns are binary values as the minority values are considers are outliers.So removing these much outliers is not possible because it will case loss of data .its not a categorical value so replacing it with median or mode is not possible .Replacing with mode will lose the minority values.So it is better to do anything.
+
+These three columns are binary values, as the minority values are considered outliers. So removing these outliers is not possible because it will cause data loss. It's not a categorical value, so replacing it with the median or mode is not possible. Replacing value with mode will lose minority values. So it is better to do anything
+
+```{r}
+
+summary(mydf$damaged)
+summary(mydf$first_owner)
+summary(mydf$bluetooth)
+```
+so removing outliers in binary varibles is not good .
+
+
+
+
+```{r}
+# Frequency table
+table(mydf$damaged)
+# Bar chart
+barplot(table(mydf$damaged), main = "Frequency Distribution of 'damaged' Variable", xlab = "Damaged", ylab = "Count",col="skyblue")
+
+# Frequency table
+table(mydf$first_owner)
+# Bar chart
+barplot(table(mydf$first_owner), main = "Frequency Distribution of 'first_owner' Variable", xlab = "first_owner", ylab = "Count",col="skyblue")
+
+
+# Frequency table
+table(mydf$bluetooth)
+# Bar chart
+barplot(table(mydf$bluetooth), main = "Frequency Distribution of 'bluetooth' Variable", xlab = "bluetooth", ylab = "Count",col="skyblue")
+
+```
+
+## 1.4 Data cleaning  
+ 
+Brand:Does not have outliers or missing values.The price associated with Alfa,Audi,Honda,MINT and nissam contain outlier and is solved using winsorzing method.
+engine_size:contains both missing values and outliers.And found that it follows a positive skewness.A Boxplot is used to find outliers. All the 6.2 values are considered outliers, so they are replaced using 75 th percentile.
+
+Year: no missing values. To find the outliers, a boxplot is used; values below 2009 are considered as outliers.which is removed using 25 th percentail.
+
+mileage: no missing values. But it has a high number of missing values. And also, the mileage starts at 0, which is practically not possible. So to solve these two issues, we replaced all values below the 25 percentile with the 25 percentile and all values above the 75 percentile with the 75 percentile.
+
+Fuel:contains multiple issues Petrol and Pertol, i.e.spelling mistake.And unknown values even hygrogen fuel etc so its better do not remove it.Instead the unknown is renamed as others.
+
+min_mpg and max_mpg:Median used to remove outliers because both contain positive and negative skewness.
+
+damaged: This mode is used to remove missing values.
+
+Binary variables like Bluetooth, first_owner, and damaged columns contain outliers.But these are binary values.so removing it with median or mean is not possible .We can't even use mode so its better do nothing.
+
+Brand:No outliers or missing values. The price associated with Alfa,Audi,Honda, Mint, and Nissan contains an outlier and is solved using the winningsorzing method. engine_size:contains both missing values and outliers. And found that it follows a positive skewness. A boxplot is used to find outliers. All the 6.2 values are considered outliers, so they are replaced using the 75th percentile. Year: no missing values. To find the outliers, a boxplot is used; values below 2009 are considered as outliers.which is removed using the 25th percentile. mileage: no missing values. But it has a high number of missing values. And also, the mileage starts at 0, which is practically not possible. So to solve these two issues, we replaced all values below the 25 percentile with the 25 percentile and all values above the 75 percentile with the 75 percentile. Fuel contains multiple issues. Petrol and Pertol, i.e., spelling mistakes And unknown values, can be  hydrogen fuel, etc., so it's better not to remove it. Instead, the unknown is renamed as others. min_mpg and max_mpg:Median are used to remove outliers because both contain positive and negative skewness. damaged: This mode is used to remove missing values. Binary variables like Bluetooth, first_owner, and damaged columns contain outliers. But these are binary values. so removing it with median or mean is not possible. We can't even use mode, so it's better to do nothing.
+
+
+
+
+## 2. Exploratory Data Analysis (EDA)
+
+Simple r codes are used to find the mean, median, and mode. A barplot is used to visualise the "brand, and it was found that Alfa cars are highly available and Porsche cars are least available. Using a barplot, we found that petrol cars are high in numbers and have the highest selling price. 94% of cars are petrol, which is highly dominant in the dataset. Barplot is used to plot 'automatic transmission and non-automatic cars and found that most of the cars and the dataset are automatic,and they are the most selling ones with an expensive selling price as compared to manual. A pie chart is used to plot damaged variables. plotting a bar graph for price and car brand to know which is the expensive car and which is the cheapest car.
+
+## 2.2 EDA execution   
+
+#exploratory data analysis
+
+#UNIVARIATE ANALYSIS
+
+Exploring mean,median,Mode ,standard deviation of each variable in the dataset.
+mileage
+```{r}
+mean_mileage <- mean(mydf$mileage)
+median_mileage <- median(mydf$mileage)
+# Mode calculation 
+mode_mileage <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mode_mileage <- mode_mileage(mydf$mileage)
+
+range_mileage <- range(mydf$mileage)
+sd_mileage <- sd(mydf$mileage)
+
+print(paste("Mean  for Mileage:", mean_mileage))
+print(paste("Median for Mileage:", median_mileage))
+print(paste("Mode for Mileage:", mode_mileage))
+print(paste("Range of Mileage:", range_mileage))
+print(paste("Standard Deviation of Mileage:", sd_mileage))
+
+```
+
+
+#year
+
+```{r}
+mean_year <- mean(mydf$year)
+median_year <- median(mydf$year)
+# Mode calculation 
+mode_year <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mode_year <- mode_year(mydf$year)
+
+range_year <- range(mydf$year)
+sd_year <- sd(mydf$year)
+
+print(paste("Mean  for year:", mean_year))
+print(paste("Median for year:", median_year))
+print(paste("Mode for year:", mode_year))
+print(paste("Range of year:", range_year))
+print(paste("Standard Deviation of year:", sd_year))
+
+```
+The mean value is ~ 2017, which shows that most of the cars are more than 6 years. old. Mode is 2020, which means the latest cars. This is the reason why most cars are automatic transmission cars.
+
+#price
+```{r}
+mean_price <- mean(mydf$price)
+median_price <- median(mydf$price)
+# Mode calculation 
+mode_price <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mode_price <- mode_price(mydf$price)
+
+range_price <- range(mydf$price)
+sd_price <- sd(mydf$price)
+
+print(paste("Mean for Price:", mean_price))
+print(paste("Median for Price:", median_price))
+print(paste("Mode for Price:", mode_price))
+print(paste("Range of Price:", range_price))
+print(paste("Standard Deviation of Price:", sd_price))
+
+```
+
+```{r}
+#min_mpg
+mean_min_mpg <- mean(mydf$min_mpg)
+median_min_mpg <- median(mydf$min_mpg)
+# Mode calculation 
+mode_min_mpg <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mode_min_mpg <- mode_min_mpg(mydf$min_mpg)
+
+range_min_mpg <- range(mydf$min_mpg)
+sd_min_mpg <- sd(mydf$min_mpg)
+
+print(paste("Mean for Min mpg:", mean_min_mpg))
+print(paste("Median for Min mpg:", median_min_mpg))
+print(paste("Mode for Min mpg:", mode_min_mpg))
+print(paste("Range of Min mpg:", range_min_mpg))
+print(paste("Standard Deviation of Min mpg:", sd_min_mpg))
+
+# max_mpg
+
+mean_max_mpg <- mean(mydf$max_mpg)
+median_max_mpg <- median(mydf$max_mpg)
+# Mode calculation 
+mode_max_mpg <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mode_max_mpg <- mode_max_mpg(mydf$max_mpg)
+
+range_max_mpg <- range(mydf$max_mpg)
+sd_max_mpg <- sd(mydf$max_mpg)
+
+print(paste("Mean for Max mpg:", mean_max_mpg))
+print(paste("Median for Max mpg:", median_max_mpg))
+print(paste("Mode for Max mpg:", mode_max_mpg))
+print(paste("Range of Max mpg:", range_max_mpg))
+print(paste("Standard Deviation of Max mpg:", sd_max_mpg))
+
+```
+MPG is a value related to fuel and its says how many miles we can run a car using 1 gallon of fuel .so the value can be only positive.If it is zero then it means that if with 1 gallon of fuel you can go for 0km and negative also means the same.
+
+#plotting the car brand 
+```{r}
+mydf$brand <- sapply(strsplit(mydf$brand, " "), `[`, 1)
+
+#Plotting car name to check the distribution
+
+ggplot(data = mydf, aes(x=brand, fill = brand)) +
+  geom_bar() + labs(x='Car Brand') + labs(title = "Bar Graph of Car Brand") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+```{r}
+ggplot(mydf, aes(x = brand, y = price)) +
+  geom_boxplot(fill = "skyblue", color = "blue") +
+  labs(title = "Price Distribution by Brand",
+       x = "Brand",
+       y = "Price") +
+  theme_minimal()
+```
+
+Alfa cars are the highest number of cars available. Porshe has the lowest availability. The median height of an Audi car is high.
+
+#plotting the fueltypes
+```{r}
+ggplot(data = mydf, aes(x=reorder(fuel, fuel, function(x)-length(x)), fill = fuel)) +
+  geom_bar() + labs(x='Fuel') + labs(title = "Bar Graph of Fuel") 
+```
+
+petrol type car is the most selling.
+
+```{r}
+#pie chart for fuel types
+data <- table(mydf$fuel)
+plot_ly(labels = names(data), values = data, type = "pie",
+        textposition = "inside", textinfo = "label+percent") %>%
+  layout(scene = list(aspectmode = "cube"), title = list(text = "Fuel Types", font = list(size = 18, color = "black", family = "Arial")))
+```
+
+#BIVARIENT ANALYSIS
+```{r}
+#fuel vs price
+mydf$fuel <- as.factor(mydf$fuel)
+
+str(mydf$price)
+
+# Create a bar plot for "price" by "fuel"
+bar_plot <- ggplot(mydf, aes(x = fuel, y = price, fill = fuel)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Bar Plot of Price by Fuel", x = "Fuel", y = "Price") +
+  theme_minimal()
+
+# Show the bar plot
+print(bar_plot)
+```
+
+Petrol cards are selling at high price then it is followed by hybrid.
+
+```{r}
+bar_plot <- ggplot(mydf, aes(x = drivetrain, y = price, fill = drivetrain)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Bar Plot of Price by Fuel", x = "Fuel", y = "Price") +
+  theme_minimal()
+
+# Show the bar plot
+print(bar_plot)
+```
+
+```{r}
+
+bar_plot <- ggplot(mydf, aes(x = factor(automatic_transmission), y = price, fill = factor(automatic_transmission))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Bar Plot for Price vs Automatic Transmission", x = "Automatic Transmission", y = "Price") +
+  theme_minimal()
+
+# Show the bar plot
+print(bar_plot)
+
+```
+```{r}
+barplot(table(mydf$year),main="plotting year column",col="skyblue")
+```
+
+
+A large number of cars are from last 5 years.
+```{r}
+#plotting damaged variable.
+pie_chart <- ggplot(mydf, aes(x = "", fill = factor(damaged))) +
+  geom_bar(width = 1, stat = "count") +
+  coord_polar(theta = "y") +
+  labs(title = "Damaged Distribution", fill = "Damaged")
+
+# Show the pie chart
+print(pie_chart)
+
+```
+this shows most of the cars are without damage
+
+```{r}
+pie_chart <- ggplot(mydf, aes(x = "", fill = factor(year))) +
+  geom_bar(width = 1, stat = "count") +
+  coord_polar(theta = "y") +
+  labs(title = "year Distribution", fill = "year")
+
+# Show the pie chart
+print(pie_chart)
+```
+
+
+```{r}
+barplot(table(mydf$first_owner),col="skyblue")
+```
+
+
+
+#the ratio of  first owner and second owner cars are almost equal.
+```{r}
+
+data <- table(mydf$automatic_transmission)
+
+# 3D pie chart
+plot_ly(labels = names(data), values = data, type = "pie",
+        textposition = "inside", textinfo = "label+percent") %>%
+  layout(scene = list(aspectmode = "cube"))
+
+```
+
+Only 6.63 % percentage contain manual transmission.
+
+
+```{r}
+data <- table(mydf$first_owner)
+
+plot_ly(labels = names(data), values = data, type = "pie",
+        textposition = "inside", textinfo = "label+percent") %>%
+  layout(scene = list(aspectmode = "cube"))
+
+```
+
+```{r}
+ggplot(mydf, aes(x = mileage, y = price)) +
+  geom_line(color = "blue") +
+  labs(title = "Line Graph between Price and Mileage",
+       x = "Mileage",
+       y = "Price") +
+  theme_minimal()
+```
+From this we can found about that as mileage increase price decrease
+
+
+
+
+```{r}
+ggplot(mydf, aes(x = year, y = price)) +
+  geom_line(color = "blue") +
+  labs(title = "Line Graph between Price and year",
+       x = "year",
+       y = "Price") +
+  theme_minimal()
+```
+As year increases the price of the car also increases slightly.
+
+```{r}
+barplot(table(mydf$first_owner, mydf$damaged), beside = TRUE, col = c("skyblue", "salmon"),
+        main = "Relationship Between First Owner and Damaged",
+        xlab = "First Owner",
+        ylab = "Frequency",
+        legend.text = TRUE,
+        args.legend = list(title = "Damaged", x = "topright", cex = 0.8))
+
+```
+
+
+```{r}
+
+#correlation matrix
+cor_matrix <- cor(mydf[, c("year", "mileage", "engine_size", "min_mpg", "max_mpg", "damaged", "first_owner", "bluetooth", "price")])
+
+#Extract the correlation values
+cor_values <- as.vector(cor_matrix)
+
+cor_df <- expand.grid(
+  Variable1 = rownames(cor_matrix),
+  Variable2 = colnames(cor_matrix),
+  stringsAsFactors = FALSE
+)
+
+cor_df$Correlation <- cor_values
+
+# Print the data frame
+print(cor_df)
+```
+
+
+
+
+```{r}
+#testing the difference in price between damaged and non-damaged cars
+#null hypothysis:There is no diffrence in the mean of population of damaged and non damaged
+#null hypothysis:There is  diffrence in the mean of population of damaged and non damaged
+t_test <- t.test(mydf$price ~ mydf$damaged)
+print(t_test)
+
+```
+
+
+#correlation test
+```{r}
+# testing the correlation between 'mileage' and 'price'
+#Null Hypothesis,H0:there is no correlation between mileage varible and price varible 
+#Alternative Hypothesis,H1:there is no correlation between mileage varible  and price varible.
+cor_test_result <- cor.test(mydf$mileage, mydf$price)
+print(cor_test_result)
+
+```
+
+  
+  95 percent confidence interval:
+-0.7038696 -0.5917702
+Here we can see that the 95% CI falls above the value range. Apart from that, the p-value is less than 0.05, and the zero value is not part of the interval, so we can reject the null hypothesis.
+ 
+
+
+
+```{r}
+#  testing the correlation between 'year' and 'price'
+#Null Hypothesis,H0:there is no correlation between year variable and price variable 
+#Alternative Hypothesis,H1:there is no correlation between year variable  and price variable.
+
+cor_test_result <- cor.test(mydf$year, mydf$price)
+print(cor_test_result)
+```
+p_value is less than 0.05 so that we can reject the HO and accept the H1 ,which mean there is a positive relation between year and price.
+
+```{r}
+#testing the correlation between 'first_owner' and 'price'
+#Null Hypothesis,H0:there is no correlation between first_owner and price variable 
+#Alternative Hypothesis,H1:there is no correlation between first_owner variable  and price variable.
+
+cor_test_result <- cor.test(mydf$first_owner, mydf$price)
+print(cor_test_result)
+
+```
+
+```{r}
+
+# Create a boxplot
+ggplot(mydf, aes(x = factor(first_owner), y = price)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Price by First Owner Status",
+       x = "First Owner",
+       y = "Price") +
+  theme_minimal()
+
+# Perform a t-test
+t_test_result <- t.test(price ~ first_owner, data = mydf)
+print(t_test_result)
+
+```
+
+From the Welch Two Sample t-test and box plot we can see that the mean and median price of car for first owner is very high.
+
+
+
+```{r}
+
+
+# Replace car brand names with numeric codes
+mydf <- mydf %>%
+  mutate(brand = case_when(
+    brand == "Alfa" ~ 0,
+    brand == "Audi" ~ 1,
+    brand == "BMW" ~ 2,
+    brand == "Cadillac" ~ 3,
+    brand == "Chevrolet" ~ 4,
+    brand == "FIAT" ~ 5,
+    brand == "Ford" ~ 6,
+    brand == "Honda" ~ 7,
+    brand == "Hyundai" ~ 8,
+    brand == "Jaguar" ~ 9,
+    brand == "Jeep" ~ 10,
+    brand == "Kia" ~ 11,
+    brand == "Land" ~ 12,
+    brand == "Lexus" ~ 13,
+    brand == "Maserati" ~ 14,
+    brand == "Mazda" ~ 15,
+    brand == "Mercedes-Benz" ~ 16,
+    brand == "MINI" ~ 17,
+    brand == "Mitsubishi" ~ 18,
+    brand == "Nissan" ~ 19,
+    brand == "Porsche" ~ 20,
+    brand == "Toyota" ~ 21,
+    brand == "Volkswagen" ~ 22,
+    brand == "Volvo" ~ 23
+  ))
+
+head(mydf$brand)
+
+```
+
+```{r}
+print(unique(mydf$fuel))
+
+```
+
+
+```{r}
+#replacing each type of fuel with numbers
+mydf <- mydf %>%
+  mutate(fuel = case_when(
+    fuel == "Petrol" ~ 0,
+    fuel == "Hybrid" ~ 1,
+    fuel == "Electric" ~ 2,
+    fuel == "GPL" ~ 3,
+    fuel == "Others" ~ 4 
+  ))
+
+# Print the unique values in the 'fuel' column
+print(unique(mydf$fuel))
+
+
+```
+
+
+
+```{r}
+table(mydf$fuel)
+```
+
+
+
+```{r}
+unique(mydf$drivetrain)
+```
+
+
+```{r}
+unique(mydf$drivetrain)
+```
+
+```{r}
+mydf <- mydf %>%
+  mutate(drivetrain = replace(drivetrain, drivetrain == "Unknown", "Others"))
+
+```
+
+
+```{r}
+mydf <- mydf %>%
+  mutate(drivetrain = case_when(
+    drivetrain == "Four-wheel Drive" ~ 0,
+    drivetrain == "Rear-wheel Drive" ~ 1,
+    drivetrain == "Front-wheel Drive" ~ 2,  # Add comma here
+    drivetrain == "Others" ~ 3
+  ))
+
+# Print the unique values in the 'drivetrain' column
+print(unique(mydf$drivetrain))
+
+
+```
+
+
+
+## 2.3 EDA summary of results
+Alfa cars are high in number, in other words there are a high number of cars available for selling. And Porshe cars are least available we consider the fuel type, petrol
+care has highest selling as compared to other cars around 94%., followed by hybrid, electric GPL,and others, respectively. IN between automatic and non-automatic, automatic cars have more selling price, and its ratio is around 94.4%. The number of first owner and second owner is almost equal. In the dataset more than 75% of the cars are without Damage. In the dataset the percentage of automatic transmission is around 93.4% and only 6.63 % of cars comes under manual transmission. This means most of the cars are not so old. 
+
+For a customer who is going to buy a used car will be definetely look for about the issue regarding the damage history  of the car .So even if the number of cars are less in number we need to look into that inorder to verify there is any diffrence  in the mean between damaged and not damaged. For this we are going to use don Welch Two sample t-test.
+
+null hypothysis:There is no diffrence in the  mean of the price between  damaged cars and not damaged cars.
+
+Alternative hypothysis:There is a diffrence in the  mean of the price between  damaged cars and not damaged cars.
+
+If we look in values of  mileage column then we can see that the min value is 0.In the dataset mileage represent the the total distance covered by the car in km .FOr a used car the mileage to be zero is not possible.
+
+
+## 2.4 Additional insights and issues
+
+*Highlight potential further issues or insights uncovered in 2.2.  This might include follow up to findings from your initial EDA.  We accept that the boundary between 2.2 and 2.3 is somewhat arbitrary so use your judgement and maximise good structure and readability. (5 marks) (Max 200 words)*
+
+The binary values like Damaged and bluetooth is imbalanced.In order to over come this we can use upsampling technique technique if we want.IF we look into the years we can see that every important statical measures lies in the past 6 yeas.Mean is around 2018,median is around 2019,mode is around 2020 .And this shows costomers who are bought their car in the recent years like to sell their cars .This it can be issue regarding the quality or shows their  high spending index(they don't want to use their car more than around 6 years).And the fuels type which represent others can be hydrogen ,which is very low in number but price is not that much low .From all these features year has high positive corelation with price,which mean as last cars are always with high price and slightly low if the cars is a damaged car. Mileage  has high negitive corelation which means people don't want to buy car with  high mileage rate.
+
+
+# 3. Modelling
+
+## 3.1 Explain your analysis plan
+
+*The aim of the analysis is to model used car prices. Outline and justify an analysis plan to address the aim that incorporates/references any findings from the data cleaning (1.4) and EDA (2.3, 2.4)  (5 marks). (Max 200 words)*
+
+
+Damage,third_row_seating,bluetooth,thse features are binary values as the r code found a lot of outliers As we mentioned earlier these features contain 2 values only 0 or 1.And the 'R' will consider the minority value as outlier.So removing these much values will destroy the minority values and  it will cause loss of data .Its not a categorical value so replacing it with median or mode is not possible .Replacing with mode will lose the minority values.So it is better to do Nothing.
+
+
+
+
+## 3.2 Build a model for car price
+*Use R to build a suitable model to model used car prices on your data (dependent variable is price) (5 marks). (Max 100 words)*  
+*NB Submissions where suitable models do not have good fit due to the nature of the data will not be penalised.*  
+
+we are considering price as dependent variable(target variable) and  features of the car has independent variable.And we are going to split the data into training set and texting set in order to  do Linear regression.
+```{r}
+
+set.seed(123)
+
+# splitting the data into training set(70 percentage) and testing set (20 percentage)
+index <- createDataPartition(mydf$price, p = 0.7, list = FALSE)
+
+# Create training and testing sets
+train_data <- mydf[index, ]
+test_data <- mydf[-index, ]
+```
+
+
+After training the model using training_data ,we are going to make prediction on test data.And to do model evaluation we use mean square error and route mean square error.
+
+
+
+```{r}
+#Build a linear regression model
+lm_model <- lm(price ~ ., data = train_data)
+
+# Print the summary of the model
+summary(lm_model)
+
+# Make predictions on the test set
+predictions <- predict(lm_model, newdata = test_data)
+
+# Evaluate the model performance
+mse <- mean((test_data$price - predictions)^2)
+rmse <- sqrt(mse)
+
+# Print the evaluation metrics
+cat("Mean Squared Error (MSE):", mse, "\n")
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+```
+As we can see that the model is giving an adjusted R-Square value of 72.16 % and P-value is less than 0.05 So we can reject  the null hypothesis and accept the alternative hypothesis that there is a significant relationship between dependent variable and independent variable.
+
+
+The linear regression model, constructed using the training data, exhibits a robust performance in predicting car prices based on several key features. With an R-squared value of 0.7361, the model explains approximately 73.61% of the variance in car prices, suggesting a strong relationship between the selected predictors and the dependent variable. Notably, significant predictors such as year, mileage, engine size, drivetrain, damaged status, navigation system, and Bluetooth contribute significantly to the model's predictive capability. The Adjusted R-squared value of 0.7216 accounts for the number of predictors in the model, and the residual standard error (RSE) of 6133 represents the standard deviation of the residuals.
+
+The "year" number is positive, it means that as the car gets newer, its price tends to go up. We tested the model's accuracy using some measures, like Mean Squared Error (MSE) and Root Mean Squared Error (RMSE). These numbers (MSE: 53089691, RMSE: 7286.267) show how well the model predicts car prices. Smaller RMSE values mean the model is doing a better job.
+
+In conclusion, the linear regression model serves as a valuable tool for understanding the relationship between various features and car prices
+
+
+
+
+```{r}
+# Assuming 'lm_model' is your linear regression model
+plot_summary <- function(lm_model) {
+  # Plot the summary of the linear regression model
+  plot(lm_model)
+  
+  # Additional customizations can be added here if needed
+  
+  # Display the plot
+  print(plot_summary)
+}
+
+# Call the function with your linear regression model
+plot_summary(lm_model)
+
+```
+
+```{r}
+# residual vs fitted plot
+ggplot(lm_model, aes(x = .fitted, y = .resid)) + 
+  geom_point(color = "#4c72b0", alpha = 0.3) +
+  geom_hline(aes(yintercept = 0), color = "#345790") +
+  geom_smooth(color = "#2d1a94") +
+  theme_bw() +
+  labs(title = "Residuals vs Fitted",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+ histogram
+ggplot(lm_model, aes(x = .resid)) +
+  geom_histogram(bins = 30, fill = "#4c72b0", color = "#345790", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Residuals Distribution",
+       x = "Residuals",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# Install and load the lmtest package if not already installed
+# install.packages("lmtest")
+library(lmtest)
+
+# Assuming lm_model is your linear model
+bptest(lm_model)
+
+```
+
+```{r}
+# Scatter plot of actual vs. predicted prices
+plot(test_data$price, predictions, main = "Actual vs. Predicted Prices",
+     xlab = "Actual Prices", ylab = "Predicted Prices", pch = 16, col = "blue")
+
+# Add a trendline
+abline(0, 1, col = "red")
+
+# Add a legend at the bottom right
+legend("bottomright", legend = "Regression Line", col = "red", lty = 1)
+
+# Display the plot
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+## 3.4 Suggest and implement improvements to your model
+
+*Based on the findings in 3.2 and 3.3 articulate and include one possible alternative approach to address the model weaknesses articulated in 3.3. Explain which model (from the ones in 3.2 and 3.4) you propose and why (5 marks). (Max 200 words)*
+
+
+
+we can see influential outlier present in the Residuals Vs Leverage graph.So in order to get some improvements we will remove those outliers.
+
+```{r}
+cooksD <- cooks.distance(lm_model)
+cook_error <- cooksD[(cooksD > (3 * mean(cooksD, na.rm = TRUE)))]
+cook_error
+```
+The above are the influential outliers.
+
+
+```{r}
+names_of_influential <- names(cook_error)
+outliers <- mydf[names_of_influential,]
+without_outliers <- mydf %>% anti_join(outliers)
+model2 <- lm(price ~ ., data = without_outliers)
+summary(model2)
+```
+
+Findings:
+
+The improved model (model2) exhibits enhanced performance metrics compared to the initial model. With an increased R-squared value of 0.7517, the model now accounts for approximately 75.17% of the variance in car prices. The Adjusted R-squared value of 0.7415 provides a more accurate measure of model fit, considering the number of predictors.In addition to that , the reduced residual standard error (5729) indicates diminished variability in the residuals, reflecting a better overall fit. The updated coefficients in model2, influenced by the removal of influential outliers, highlight the continued significance of predictors such as year, mileage, engine size, drivetrain, automatic transmission, min_mpg, and navigation system in predicting car prices.
+
+
+As the manufacturing year of the car increases, the price tends to rise. This is indicated by the positive coefficient for the "year" variable.A negative coefficient for "mileage" suggests that as the mileage of the car increases, the price tends to decrease. Cars with larger engine sizes tend to have higher prices, as indicated by the positive coefficient for "engine size."
+
+
+
+
+
+

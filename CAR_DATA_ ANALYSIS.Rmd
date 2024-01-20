@@ -1166,8 +1166,6 @@ Damage,third_row_seating,bluetooth,thse features are binary values as the r code
 
 
 ## 3.2 Build a model for car price
-*Use R to build a suitable model to model used car prices on your data (dependent variable is price) (5 marks). (Max 100 words)*  
-*NB Submissions where suitable models do not have good fit due to the nature of the data will not be penalised.*  
 
 we are considering price as dependent variable(target variable) and  features of the car has independent variable.And we are going to split the data into training set and texting set in order to  do Linear regression.
 ```{r}
